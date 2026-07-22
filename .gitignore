@@ -1,0 +1,34 @@
+# MuJoCo 运行时生成的文件
+MUJOCO_LOG.TXT
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# matplotlib 缓存
+*.png
+*.jpg
+*.jpeg
+*.gif
