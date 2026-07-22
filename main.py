@@ -124,25 +124,62 @@ def main():
     start_joints = np.array([-1.57, -1.34, 2.65, -1.3, 1.55, 0])  # 对应机械臂初始位姿[-0.13, 0.3, 0.1, 3.14, 0, 1.57]
     data.qpos[:6] = start_joints  # 确保渲染一开始机械臂便处于起始位置，而非MJCF中的默认位置
 
-    # 设置目标点
-    ee_pos = [-0.13, 0.6, 0.1]
+    # 定义两个目标点：A位置（接近红色立方体）、B位置（推动立方体）
+    target_A_pos = [-0.13, 0.5, 0.1]   # A位置：靠近立方体但不接触
+    target_B_pos = [-0.13, 0.65, 0.1]  # B位置：推动立方体
     ee_euler = [3.14, 0, 1.57]
     ref_pos = [0, 0, -1.57, -1.34, 2.65, -1.3, 1.55, 0, 0]
     ee_orientation = tf.euler.euler2mat(*ee_euler)
 
-    joint_angles = my_chain.inverse_kinematics(ee_pos, ee_orientation, "all", initial_position=ref_pos)
-    end_joints = joint_angles[2:-1]
+    # IK求解A位置的关节角
+    joint_angles_A = my_chain.inverse_kinematics(target_A_pos, ee_orientation, "all", initial_position=ref_pos)
+    target_A_joints = joint_angles_A[2:-1]
 
-    joint_trajectory = JointSpaceTrajectory(start_joints, end_joints, steps=100)
+    # IK求解B位置的关节角
+    joint_angles_B = my_chain.inverse_kinematics(target_B_pos, ee_orientation, "all", initial_position=ref_pos)
+    target_B_joints = joint_angles_B[2:-1]
+
+    # 创建两阶段轨迹：初始→A→B
+    trajectory_to_A = JointSpaceTrajectory(start_joints, target_A_joints, steps=100)
+    trajectory_to_B = None  # 将在到达A点后创建
+    current_phase = "to_A"  # 当前阶段
 
     force_sensor = ForceSensor(model, data)
     force_plotter = ForcePlotter()
 
     with mujoco.viewer.launch_passive(model, data) as viewer:
         viewer_init(viewer)
+
+        # 添加目标位置可视化标记
+        # 在场景中添加两个半透明球体标记A和B位置
+        print(f"目标A位置: {target_A_pos}")
+        print(f"目标B位置: {target_B_pos}")
+        print("阶段1: 移动到A位置（接近立方体）")
+
         while viewer.is_running():
-            waypoint = joint_trajectory.get_next_waypoint(data.qpos[:6])
-            data.ctrl[:6] = waypoint
+            # 根据当前阶段选择轨迹
+            if current_phase == "to_A":
+                waypoint = trajectory_to_A.get_next_waypoint(data.qpos[:6])
+                data.ctrl[:6] = waypoint
+
+                # 检查是否到达A点
+                if np.allclose(data.qpos[:6], target_A_joints, atol=0.02):
+                    if trajectory_to_B is None:
+                        print("已到达A位置！")
+                        print("阶段2: 移动到B位置（推动立方体）")
+                        # 创建从当前位置到B的轨迹
+                        trajectory_to_B = JointSpaceTrajectory(data.qpos[:6], target_B_joints, steps=150)
+                        current_phase = "to_B"
+
+            elif current_phase == "to_B":
+                waypoint = trajectory_to_B.get_next_waypoint(data.qpos[:6])
+                data.ctrl[:6] = waypoint
+
+                # 检查是否到达B点
+                if np.allclose(data.qpos[:6], target_B_joints, atol=0.02):
+                    if current_phase == "to_B":
+                        print("已到达B位置！任务完成")
+                        current_phase = "completed"
 
             filtered_force = force_sensor.filter()
             force_plotter.plot_force_vector(filtered_force)
