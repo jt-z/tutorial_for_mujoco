@@ -34,5 +34,15 @@
             <geom name="red_box_geom" type="box" size="0.1 0.1 0.1" rgba="1 0 0 1" mass="1.0"/>
         </body>
 
+        <!-- 目标位置A的可视化标记（绿色半透明球体）-->
+        <body name="target_A_marker" pos="-0.13 0.5 0.1">
+            <geom name="target_A_geom" type="sphere" size="0.03" rgba="0 1 0 0.5" contype="0" conaffinity="0"/>
+        </body>
+
+        <!-- 目标位置B的可视化标记（蓝色半透明球体）-->
+        <body name="target_B_marker" pos="-0.13 0.65 0.1">
+            <geom name="target_B_geom" type="sphere" size="0.03" rgba="0 0 1 0.5" contype="0" conaffinity="0"/>
+        </body>
+
     </worldbody>
 </mujoco>
